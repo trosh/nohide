@@ -352,8 +352,7 @@ class editor:
             # there is a range but no command
             rng = self.getRange(comm)
             self.cursor = rng[-1]
-            for line in sub(self.text, rng):
-                print(visible(line))
+            comm = ""
         if comm == "":
             print(visible(self.text[self.cursor]))
         elif comm == "q" or comm == "Q":
