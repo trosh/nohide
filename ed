@@ -173,7 +173,7 @@ class editor:
         else:
             rng = sorted[rng]
         newText = getText()
-        self.text[rng[0]:rng[0]] = [newText]
+        self.text[rng[0]:rng[0]] = newText
         self.cursor = rng[0] + len(newText) - 1
         if self.cursor == -1:
             # inserted nothing, before beginning
@@ -187,7 +187,7 @@ class editor:
         if len(self.text) == 0:
             self.cursor = -1
         newText = getText()
-        self.text[rng[-1]+1:rng[-1]+1] = [newText]
+        self.text[rng[-1]+1:rng[-1]+1] = newText
         self.cursor = rng[-1] + len(newText)
     def delete(self, rng):
         """delete line range (or cursor)"""
