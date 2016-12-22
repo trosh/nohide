@@ -231,8 +231,7 @@ class editor:
             elif comm[n] == "/" and not esc:
                 break
             n += 1
-        s = comm[1:n]
-        patt = re.compile(s)
+        patt = re.compile(comm[1:n])
         for m, line in enumerate(\
                 self.text[self.cursor:] + \
                 self.text[:self.cursor]):
@@ -244,6 +243,84 @@ class editor:
             self.parse(comm[n+1:])
         else:
             print(visible(line))
+    def substitute(self, rng, comm):
+        if len(rng) == 0:
+            rng = [self.cursor]
+        if len(comm) == 1:
+            # repeat previous substitution, if there is one
+            error("No previous substitution")
+        delim = comm[1]
+        # TODO replace this with a machine a etat
+        # to check for escape backslashes
+        delim2 = comm.find(delim, 2)
+        if delim2 == -1:
+            error("Invalid pattern delimiter")
+        patt = re.compile(comm[2:delim2])
+        # Determine replacement string and substitution count
+        # substitution count != 1 not implemented yet
+        delim3 = comm.find(delim, delim2+1)
+        cnt = 1
+        if delim3 == -1:
+            repl = comm[delim2+1:]
+        else:
+            repl = comm[delim2+1:delim3]
+            if delim3 + 1 == len(comm):
+                pass
+            elif comm[delim3+1:] == "g":
+                cnt = 0
+            else:
+                cnt = int(comm[delim3+1:])
+        for n, line in enumerate(sub(self.text, rng)):
+            # TODO for s/patt/repl/g, repeat the whole thing
+            # warning : avoid regex recursion !!!
+            vis = ""
+            matched = False
+            for m, part in enumerate(line):
+                if type(part) == type([]):
+                    continue
+                vis += part
+                match = patt.search(vis)
+                if not match:
+                    continue
+                # there is a match !
+                matched = True
+                if len(vis) - match.start() > len(part):
+                    # goes across hidden content, change line
+                    hid = ""
+                    for part in line:
+                        if type(part) == type([]):
+                            if part[0][-1] == "\n":
+                                continue
+                            for hidden in part[0]:
+                                hid += hidden # TODO distinguish bits ?
+                        else:
+                            hid += part
+                    hid += "\n"
+                    newline = patt.sub(repl, visible(line), 1)
+                    if type(line[0]) == type([]) and \
+                       line[0][0][-1] == "\n":
+                        # there already are hidden lines
+                        line = [line[0] + [hid], newline]
+                    else:
+                        # there is no hidden line yet
+                        line = [[hid], newline]
+                else:
+                    # change in place
+                    start = match.start() - (len(vis) - len(part))
+                    end   = match.end()   - (len(vis) - len(part))
+                    line[m:m+1] = [
+                        part[:start],
+                        [part[start:end]],
+                        patt.sub(repl, part[start:end]),
+                        part[end:]
+                    ]
+                    # attempt merges (recursive ?) outside of part
+                break
+            if matched:
+                self.cursor = rng[0] + n
+                self.text[self.cursor] = line
+                print(visible(line))
+                break
     def quit(self, rng):
         """quit (fail on non-empty line range)"""
         if len(rng) > 0:
@@ -300,6 +377,8 @@ class editor:
             print(help)
         elif comm[0] == "/":
             self.search(rng, comm)
+        elif comm[0] == "s":
+            self.substitute(rng, comm)
         else:
             error("Unknown command")
     def edit(self):
