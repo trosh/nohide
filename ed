@@ -282,7 +282,9 @@ class editor:
             self.cursor = rng[-1]
             for line in sub(self.text, rng):
                 print(visible(line))
-        if comm == "q" or comm == "Q":
+        if comm == "":
+            print(visible(self.text[self.cursor]))
+        elif comm == "q" or comm == "Q":
             # TODO distinguish q / Q to prevent losing data ?
             self.quit(rng)
         elif comm == "p":
