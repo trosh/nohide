@@ -24,6 +24,9 @@ history, just to see the accumulated attempts.
 
 ### For example
 
+![example ed session](helloworld.gif)
+
+<!--
 <pre>
 $ ed
 >a
@@ -34,6 +37,7 @@ goodbye world
 >P
 <del>hello</del> goodbye world
 </pre>
+-->
 
 ## TODO:
 
