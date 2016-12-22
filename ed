@@ -39,7 +39,7 @@ To do:
     /re/<op>    apply op to matching line
     s/old/new   substitute in line
     g/re/<op>   apply op to all matching lines
-    <range>j    join range to single line
+    j           join range to single line
     k<lc>       create mark (lowercase character)
     <arrows>    move inside line (maybe not), go through history
 """
