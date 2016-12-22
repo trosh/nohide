@@ -24,14 +24,16 @@ history, just to see the accumulated attempts.
 
 ### For example
 
-    $ ed
-    >a
-    hello world
-    .
-    >s/hello/goodbye
-    goodbye world
-    >P
-    ~~hello~~ goodbye world
+<pre>
+$ ed
+>a
+hello world
+.
+>s/hello/goodbye
+goodbye world
+>P
+<del>hello</del> goodbye world
+</pre>
 
 ## TODO:
 
