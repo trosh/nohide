@@ -1,0 +1,298 @@
+#!/bin/env python3
+
+import sys
+
+help = """
+NOHIDE : an editor which doesn't really delete
+
+    ED mode
+
+commands:
+
+               go to next line
+    .          print current line
+    <int>      go to absolute line
+    <+-int>    go to relative line
+    <range>    go to end of range (and print range)
+    <range>p   print range
+    <range>P   print range, show hidden content
+    <range>n   enumerate range
+    <range>N   enumerate range, show hidden content
+    <range>i   insert before range (or current line)
+    <range>a   append after range (or current line)
+    <range>d   delete (but not really) range (or current line)
+    /<regex>   go to first match (search forward) (not actually a regex)
+    ?<regex>   go to first match (search backward) (not implemented)
+    q          quit
+
+<range> can be :
+    <int>
+    <+-int>
+    <[+-]int>,<[+-]int>
+    ,<[+-]int>
+    <[+-]int>,[$]    # $ not yet implemented
+"""
+
+def getText():
+    text = []
+    for line in sys.stdin:
+        line = line[:-1]
+        if line == ".":
+            return text
+        else:
+            text.append([line])
+
+def sub(s, rng):
+    return s[rng[0]:rng[-1]+1]
+
+def visible(line):
+    vis = ""
+    for part in line:
+        if type(part) == type(""):
+            vis += part
+    return vis
+
+def complete(line):
+    s = ""
+    if type(line[0]) == type([]) and \
+       line[0][0][-1] == "\n":
+        s = "\033[31m{}\033[m".format("".join(line[0]))
+        line = line[1:]
+    for part in line:
+        if type(part) == type(""):
+            s += part
+        else:
+            s += "\033[31m{}\033[m ".format(" ".join(part))
+    return s
+
+def merge(line):
+    """merge hidden and visible parts of line array to string
+    expects an array without initial hidden complete lines"""
+    s = ""
+    for part in line:
+        if type(part) == type(""):
+            s += part
+        else:
+            s += " ".join(part) + " "
+    return s
+
+def error(s):
+    sys.stdout.write("\033[7m{}\033[m\n".format(s))
+
+class editor:
+    """an editor which doesn't really delete"""
+    text = [
+        ["hello"],
+        [["wow"], "how are you ?"], # here, "wow" is hiddden
+        [["i have more to say!\n"],
+         "goodbye."]
+    ]
+    appendix = ["P.S. : I secretly love ed :-/\n"]
+    cursor = len(text) - 1
+    def getStart(self, s):
+        """get line number from orphan or before-comma string"""
+        if len(s) == 0:
+            return 0
+        if s[0] in "-+":
+            return self.cursor + int(s)
+        return int(s) - 1
+    def getEnd(self, s):
+        """get line number from after-comma string"""
+        if len(s) == 0:
+            return len(self.text) - 1
+        if s[0] in "-+":
+            return self.cursor + int(s)
+        return int(s) - 1
+    def getRange(self, s):
+        """get line range from non-empty string"""
+        for i, c in enumerate(s):
+            if c == ",":
+                start = self.getStart(s[:i])
+                end = self.getEnd(s[i+1:])
+                return range(start, end+1)
+        return [self.getStart(s)]
+    def print(self, rng, hide=True):
+        display_appendix = False
+        if len(rng) == 0:
+            rng = [self.cursor]
+        elif rng[-1] == len(self.text) - 1:
+            display_appendix = True
+        if hide:
+            for line in sub(self.text, rng):
+                print(visible(line))
+            return
+        for line in sub(self.text, rng):
+            print(complete(line))
+        if display_appendix:
+            for n, line in enumerate(self.appendix):
+                sys.stdout.write("\033[31m{}\033[m".format(line))
+    def enumerate(self, rng, hide=True):
+        display_appendix = False
+        if len(rng) == 0:
+            rng = [self.cursor]
+        elif rng[-1] == len(self.text) - 1:
+            display_appendix = True
+        if hide:
+            for n, line in enumerate(sub(self.text, rng)):
+                print("{:6d}  {}".format(n+1, visible(line)))
+            return
+        for n, line in enumerate(sub(self.text, rng)):
+            parts = complete(line).split("\n")
+            for hiddenline in parts[:-1]:
+                print("\t" + hiddenline)
+            sys.stdout.write("\033[m")
+            print("{:6d}  {}".format(n+1, parts[-1]))
+        if display_appendix:
+            sys.stdout.write("\033[31m")
+            for line in self.appendix:
+                sys.stdout.write("\t" + line)
+            sys.stdout.write("\033[m")
+    def insert(self, rng):
+        """insert before line range (or cursor)"""
+        if len(rng) == 0:
+            rng = [self.cursor]
+        else:
+            rng = sorted[rng]
+        newText = getText()
+        self.text[rng[0]:rng[0]] = [newText]
+        self.cursor = rng[0] + len(newText) - 1
+        if self.cursor == -1:
+            # inserted nothing, before beginning
+            self.cursor = 0
+    def append(self, rng):
+        """append after line range (or cursor)"""
+        if len(rng) == 0:
+            rng = [self.cursor]
+        else:
+            rng = sorted[rng]
+        if len(self.text) == 0:
+            self.cursor = -1
+        newText = getText()
+        self.text[rng[-1]+1:rng[-1]+1] = [newText]
+        self.cursor = rng[-1] + len(newText)
+    def delete(self, rng):
+        """delete line range (or cursor)"""
+        if len(rng) == 0:
+            rng = [self.cursor]
+        else:
+            rng = sorted(rng)
+        for cursor in reversed(rng):
+            line = self.text[cursor]
+            if type(line[0]) == type([]) and \
+               line[0][0][-1] == "\n":
+                line = line[0] + [merge(line[1:]) + "\n"]
+            else:
+                line = [merge(line) + "\n"]
+            if cursor < len(self.text) - 1:
+                # merge line to beginning of next
+                nextline = self.text[cursor + 1]
+                if type(nextline[0]) == type([]) and \
+                   nextline[0][0][-1] == "\n":
+                    nextline[0] = line + nextline[0]
+                else:
+                    nextline = [line] + nextline
+                self.text[cursor : cursor + 2] = [nextline]
+            else:
+                self.appendix = line + self.appendix
+                self.text[-1:] = []
+        self.cursor = rng[0]
+        if self.cursor == len(self.text):
+            self.cursor = len(self.text) - 1
+    def quit(self, rng):
+        """quit (fail on non-empty line range)"""
+        if len(rng) > 0:
+            error("No address allowed on this command")
+            return
+        sys.exit(0)
+    def edit(self):
+        while True:
+            comm = input(">")
+            #print("command: \"{}\"".format(comm))
+            if comm == "":
+                # empty command (no range no command)
+                if self.cursor == len(self.text) - 1:
+                    error("At end-of-file")
+                    continue
+                self.cursor += 1
+                print(visible(self.text[self.cursor]))
+                continue
+            rng = []
+            for i, c in enumerate(comm):
+                if c not in "1234567890-+,":
+                    # there is a command
+                    if i == 0:
+                        # there is no range
+                        break
+                    # there is a range
+                    rng = self.getRange(comm[:i])
+                    comm = comm[i:]
+                    break
+            else:
+                # there is a range but no command
+                rng = self.getRange(comm)
+                self.cursor = rng[-1]
+                for line in sub(self.text, rng):
+                    print(visible(line))
+            if comm == "q":
+                self.quit(rng)
+            elif comm == "p":
+                self.print(rng, hide=True)
+            elif comm == "P":
+                self.print(rng, hide=False)
+            elif comm == "n":
+                self.enumerate(rng, hide=True)
+            elif comm == "N":
+                self.enumerate(rng, hide=False)
+            elif comm == ".":
+                if len(rng) != 0:
+                    error("Badly formed address")
+                else:
+                    print(visible(self.text[self.cursor]))
+            elif comm == "i":
+                self.insert(rng)
+            elif comm == "a":
+                self.append(rng)
+            elif comm == "d":
+                self.delete(rng)
+            elif comm[0] == "h":
+                print(help)
+            elif comm[0] == "/":
+                if len(rng) != 0:
+                    error("Badly formed address")
+                    continue
+                if len(comm) == 1:
+                    # repeat previous regex, if there is one
+                    error("No previous regular expression")
+                    continue
+                n = 1
+                esc = False # machine a etats
+                while n < len(comm):
+                    if comm[n] == "\\":
+                        esc = True
+                    elif comm[n] == "/" and not esc:
+                        break
+                    n += 1
+                search = comm[1:n]
+                #if n < len(comm) - 1:
+                #    # special argument, like case independent ...
+                for n, line in enumerate(\
+                        self.text[self.cursor:] + \
+                        self.text[:self.cursor]):
+                    if search in visible(line):
+                        self.cursor += n
+                        self.cursor %= len(self.text)
+                        break
+                if len(comm) > n+1:
+                    sys.stdin.write(comm[n+1:])
+                else:
+                    print(visible(line))
+            else:
+                error("Unknown command")
+
+if len(sys.argv) > 1:
+    if sys.argv[1] == "-h":
+        print(help)
+        sys.exit(0)
+
+e = editor()
+e.edit()
