@@ -42,6 +42,7 @@ To do:
     j           join range to single line
     k<lc>       create mark (lowercase character)
     <arrows>    move inside line (maybe not), go through history
+    /re         use real regular expressions
 """
 
 def getText():
