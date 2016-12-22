@@ -3,34 +3,45 @@
 import sys
 
 help = """
-NOHIDE : an editor which doesn't really delete
+NOHIDE (ed mode) : a line editor which doesn't really delete
 
-    ED mode
+                go to     next line (and print it)
+    .           go to  current line (and print it)
+    <int>       go to absolute line (and print it)
+    <+-int>     go to relative line (and print it)
+    <range>     go to end of range (and print range)
+    p           print range
+    P           print range, show hidden content
+    n           enumerate range
+    N           enumerate range, show hidden content
+    i           insert before range (or current line)
+    a           append after range (or current line)
+    d           delete (but not really) range (or current line)
+    /<regex>    go to first match (search forward) (not actually a regex)
+    ?<regex>    go to first match (search backward) (not implemented)
+    q           quit
 
-commands:
+Most commands can be prefixed with a range.
+For example:
 
-               go to next line
-    .          print current line
-    <int>      go to absolute line
-    <+-int>    go to relative line
-    <range>    go to end of range (and print range)
-    <range>p   print range
-    <range>P   print range, show hidden content
-    <range>n   enumerate range
-    <range>N   enumerate range, show hidden content
-    <range>i   insert before range (or current line)
-    <range>a   append after range (or current line)
-    <range>d   delete (but not really) range (or current line)
-    /<regex>   go to first match (search forward) (not actually a regex)
-    ?<regex>   go to first match (search backward) (not implemented)
-    q          quit
+    3           go to 3rd line
+    +2          go down 2 lines
+    g/re/p      print matching lines
+    ,p          print text
+    ,+0n        enumerate previous text
+    .,N         enumerate from here to EOF with hidden content
+    1i          prepend file
+    ,a          append file
+    2,-1d       delete from 2nd line to previous line
 
-<range> can be :
-    <int>
-    <+-int>
-    <[+-]int>,<[+-]int>
-    ,<[+-]int>
-    <[+-]int>,[$]    # $ not yet implemented
+To do:
+
+    /re/<op>    apply op to matching line
+    s/old/new   substitute in line
+    g/re/<op>   apply op to all matching lines
+    <range>j    join range to single line
+    k<lc>       create mark (lowercase character)
+    <arrows>    move inside line (maybe not), go through history
 """
 
 def getText():
@@ -294,5 +305,6 @@ if len(sys.argv) > 1:
         print(help)
         sys.exit(0)
 
+print("type h for help")
 e = editor()
 e.edit()
