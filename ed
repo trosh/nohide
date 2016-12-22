@@ -67,13 +67,13 @@ def complete(line):
     s = ""
     if type(line[0]) == type([]) and \
        line[0][0][-1] == "\n":
-        s = "\033[31m{}\033[m".format("".join(line[0]))
+        s = "\033[9m{}\033[m".format("".join(line[0]))
         line = line[1:]
     for part in line:
         if type(part) == type(""):
             s += part
         else:
-            s += "\033[31m{}\033[m ".format(" ".join(part))
+            s += "\033[9m{}\033[m ".format(" ".join(part))
     return s
 
 def merge(line):
@@ -87,8 +87,13 @@ def merge(line):
             s += " ".join(part) + " "
     return s
 
+class EdError(Exception):
+    def __init__(self, message):
+        super(EdError, self).__init__(message)
+        self.msg = message
+
 def error(s):
-    sys.stdout.write("\033[7m{}\033[m\n".format(s))
+    raise EdError(s)
 
 class editor:
     """an editor which doesn't really delete"""
@@ -104,6 +109,10 @@ class editor:
         """get line number from orphan or before-comma string"""
         if len(s) == 0:
             return 0
+        if s == ".":
+            return self.cursor
+        if "." in s:
+            error("Badly formed address")
         if s[0] in "-+":
             return self.cursor + int(s)
         return int(s) - 1
@@ -111,6 +120,10 @@ class editor:
         """get line number from after-comma string"""
         if len(s) == 0:
             return len(self.text) - 1
+        if s == ".":
+            return self.cursor
+        if "." in s:
+            error("Badly formed address")
         if s[0] in "-+":
             return self.cursor + int(s)
         return int(s) - 1
@@ -136,7 +149,7 @@ class editor:
             print(complete(line))
         if display_appendix:
             for n, line in enumerate(self.appendix):
-                sys.stdout.write("\033[31m{}\033[m".format(line))
+                sys.stdout.write("\033[9m{}\033[m".format(line))
     def enumerate(self, rng, hide=True):
         display_appendix = False
         if len(rng) == 0:
@@ -154,7 +167,7 @@ class editor:
             sys.stdout.write("\033[m")
             print("{:6d}  {}".format(n+1, parts[-1]))
         if display_appendix:
-            sys.stdout.write("\033[31m")
+            sys.stdout.write("\033[9m")
             for line in self.appendix:
                 sys.stdout.write("\t" + line)
             sys.stdout.write("\033[m")
@@ -215,90 +228,89 @@ class editor:
             error("No address allowed on this command")
             return
         sys.exit(0)
-    def edit(self):
-        while True:
-            comm = input(">")
-            #print("command: \"{}\"".format(comm))
-            if comm == "":
-                # empty command (no range no command)
-                if self.cursor == len(self.text) - 1:
-                    error("At end-of-file")
-                    continue
+    def parse(self, comm):
+        #print("command: \"{}\"".format(comm))
+        if comm == "":
+            # empty command (no range no command)
+            if self.cursor == len(self.text) - 1:
+                error("At end-of-file")
+            else:
                 self.cursor += 1
                 print(visible(self.text[self.cursor]))
-                continue
-            rng = []
-            for i, c in enumerate(comm):
-                if c not in "1234567890-+,":
-                    # there is a command
-                    if i == 0:
-                        # there is no range
-                        break
-                    # there is a range
-                    rng = self.getRange(comm[:i])
-                    comm = comm[i:]
+            return
+        rng = []
+        for i, c in enumerate(comm):
+            if c not in "1234567890-+,.":
+                # there is a command
+                if i == 0:
+                    # there is no range
                     break
+                # there is a range
+                rng = self.getRange(comm[:i])
+                comm = comm[i:]
+                break
+        else:
+            # there is a range but no command
+            rng = self.getRange(comm)
+            self.cursor = rng[-1]
+            for line in sub(self.text, rng):
+                print(visible(line))
+        if comm == "q" or comm == "Q":
+            # TODO distinguish q / Q to prevent losing data ?
+            self.quit(rng)
+        elif comm == "p":
+            self.print(rng, hide=True)
+        elif comm == "P":
+            self.print(rng, hide=False)
+        elif comm == "n":
+            self.enumerate(rng, hide=True)
+        elif comm == "N":
+            self.enumerate(rng, hide=False)
+        elif comm == "i":
+            self.insert(rng)
+        elif comm == "a":
+            self.append(rng)
+        elif comm == "d":
+            self.delete(rng)
+        elif comm[0] == "h":
+            print(help)
+        elif comm[0] == "/":
+            if len(rng) != 0:
+                error("Badly formed address")
+            if len(comm) == 1:
+                # repeat previous regex, if there is one
+                error("No previous regular expression")
+            n = 1
+            esc = False # machine a etats
+            while n < len(comm):
+                if comm[n] == "\\":
+                    esc = True
+                elif comm[n] == "/" and not esc:
+                    break
+                n += 1
+            search = comm[1:n]
+            #if n < len(comm) - 1:
+            #    # special argument, like case independent ...
+            for m, line in enumerate(\
+                    self.text[self.cursor:] + \
+                    self.text[:self.cursor]):
+                if search in visible(line):
+                    self.cursor += m
+                    self.cursor %= len(self.text)
+                    break
+            if len(comm) > n+1:
+                self.parse(comm[n+1:])
             else:
-                # there is a range but no command
-                rng = self.getRange(comm)
-                self.cursor = rng[-1]
-                for line in sub(self.text, rng):
-                    print(visible(line))
-            if comm == "q":
-                self.quit(rng)
-            elif comm == "p":
-                self.print(rng, hide=True)
-            elif comm == "P":
-                self.print(rng, hide=False)
-            elif comm == "n":
-                self.enumerate(rng, hide=True)
-            elif comm == "N":
-                self.enumerate(rng, hide=False)
-            elif comm == ".":
-                if len(rng) != 0:
-                    error("Badly formed address")
-                else:
-                    print(visible(self.text[self.cursor]))
-            elif comm == "i":
-                self.insert(rng)
-            elif comm == "a":
-                self.append(rng)
-            elif comm == "d":
-                self.delete(rng)
-            elif comm[0] == "h":
-                print(help)
-            elif comm[0] == "/":
-                if len(rng) != 0:
-                    error("Badly formed address")
-                    continue
-                if len(comm) == 1:
-                    # repeat previous regex, if there is one
-                    error("No previous regular expression")
-                    continue
-                n = 1
-                esc = False # machine a etats
-                while n < len(comm):
-                    if comm[n] == "\\":
-                        esc = True
-                    elif comm[n] == "/" and not esc:
-                        break
-                    n += 1
-                search = comm[1:n]
-                #if n < len(comm) - 1:
-                #    # special argument, like case independent ...
-                for n, line in enumerate(\
-                        self.text[self.cursor:] + \
-                        self.text[:self.cursor]):
-                    if search in visible(line):
-                        self.cursor += n
-                        self.cursor %= len(self.text)
-                        break
-                if len(comm) > n+1:
-                    sys.stdin.write(comm[n+1:])
-                else:
-                    print(visible(line))
-            else:
-                error("Unknown command")
+                print(visible(line))
+        else:
+            error("Unknown command")
+    def edit(self):
+        while True:
+            try:
+                comm = input(">")
+                self.parse(comm)
+            except EdError as e:
+                sys.stdout.write("\033[7m{}\033[m\n".format(e.msg))
 
 if len(sys.argv) > 1:
     if sys.argv[1] == "-h":
