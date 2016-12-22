@@ -97,14 +97,9 @@ def error(s):
 
 class editor:
     """an editor which doesn't really delete"""
-    text = [
-        ["hello"],
-        [["wow"], "how are you ?"], # here, "wow" is hiddden
-        [["i have more to say!\n"],
-         "goodbye."]
-    ]
-    appendix = ["P.S. : I secretly love ed :-/\n"]
-    cursor = len(text) - 1
+    text = []
+    appendix = []
+    cursor = 0
     def getStart(self, s):
         """get line number from orphan or before-comma string"""
         if len(s) == 0:
