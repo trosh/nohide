@@ -1,6 +1,7 @@
 #!/bin/env python3
 
 import sys
+import re
 
 help = """
 NOHIDE (ed mode) : a line editor which doesn't really delete
@@ -17,7 +18,7 @@ NOHIDE (ed mode) : a line editor which doesn't really delete
     i           insert before range (or current line)
     a           append after range (or current line)
     d           delete (but not really) range (or current line)
-    /<regex>    go to first match (search forward) (not actually a regex)
+    /<regex>    go to first match (search forward)
     ?<regex>    go to first match (search backward) (not implemented)
     q           quit
 
@@ -36,13 +37,11 @@ For example:
 
 To do:
 
-    /re/<op>    apply op to matching line
     s/old/new   substitute in line
     g/re/<op>   apply op to all matching lines
     j           join range to single line
     k<lc>       create mark (lowercase character)
     <arrows>    move inside line (maybe not), go through history
-    /re         use real regular expressions
 """
 
 def getText():
@@ -223,6 +222,33 @@ class editor:
         self.cursor = rng[0]
         if self.cursor == len(self.text):
             self.cursor = len(self.text) - 1
+    def search(self, rng, comm):
+        if len(rng) != 0:
+            error("Invalid address")
+        if len(comm) == 1:
+            # repeat previous regex, if there is one
+            error("No previous pattern")
+        n = 1
+        esc = False # machine a etats
+        while n < len(comm):
+            if comm[n] == "\\":
+                esc = True
+            elif comm[n] == "/" and not esc:
+                break
+            n += 1
+        s = comm[1:n]
+        patt = re.compile(s)
+        for m, line in enumerate(\
+                self.text[self.cursor:] + \
+                self.text[:self.cursor]):
+            if patt.search(visible(line)):
+                self.cursor += m
+                self.cursor %= len(self.text)
+                break
+        if len(comm) > n+1:
+            self.parse(comm[n+1:])
+        else:
+            print(visible(line))
     def quit(self, rng):
         """quit (fail on non-empty line range)"""
         if len(rng) > 0:
@@ -276,33 +302,7 @@ class editor:
         elif comm[0] == "h":
             print(help)
         elif comm[0] == "/":
-            if len(rng) != 0:
-                error("Badly formed address")
-            if len(comm) == 1:
-                # repeat previous regex, if there is one
-                error("No previous regular expression")
-            n = 1
-            esc = False # machine a etats
-            while n < len(comm):
-                if comm[n] == "\\":
-                    esc = True
-                elif comm[n] == "/" and not esc:
-                    break
-                n += 1
-            search = comm[1:n]
-            #if n < len(comm) - 1:
-            #    # special argument, like case independent ...
-            for m, line in enumerate(\
-                    self.text[self.cursor:] + \
-                    self.text[:self.cursor]):
-                if search in visible(line):
-                    self.cursor += m
-                    self.cursor %= len(self.text)
-                    break
-            if len(comm) > n+1:
-                self.parse(comm[n+1:])
-            else:
-                print(visible(line))
+            self.search(rng, comm)
         else:
             error("Unknown command")
     def edit(self):
