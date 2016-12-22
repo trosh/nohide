@@ -366,6 +366,9 @@ class editor:
             self.enumerate(rng, hide=True)
         elif comm == "N":
             self.enumerate(rng, hide=False)
+        elif comm == "%":
+            print(self.text)
+            print(self.appendix)
         elif comm == "i":
             self.insert(rng)
         elif comm == "a":
