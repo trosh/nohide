@@ -34,10 +34,10 @@ For example:
     1i          prepend file
     ,a          append file
     2,-1d       delete from 2nd line to previous line
+    s/old/new   substitute in line
 
 To do:
 
-    s/old/new   substitute in line
     g/re/<op>   apply op to all matching lines
     j           join range to single line
     k<lc>       create mark (lowercase character)
