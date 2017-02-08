@@ -39,7 +39,7 @@ For example:
 To do:
 
     ?<regex>    go to first match (search backward)
-    j           join range to single line
+    j           join range to single line (+ yank range)
     k<lc>       create mark (lowercase character)
     <arrows>    move inside line (maybe not), go through history
     w <fn>      write to file
@@ -48,7 +48,11 @@ To do:
     v/re        apply op to all non-matching lines
     V/re        ask for op, at every non-matching line
     t<line>     copy range after line (can be 0)
+    c,d,s       (+ yank range)
+    y           yank range (to cut buffer)
+    x           put cut buffer after line
 """
+
 
 def isDigit(c):
     return "0" <= c <= "9"
@@ -70,7 +74,7 @@ def sub(s, rng):
 def nsub(s, rng):
     if len(s) == 0:
         return []
-    return [(n, s[i]) for n, i in enumerate(range(rng[0], rng[-1]+1))]
+    return [(n+rng[0], s[i]) for n, i in enumerate(range(rng[0], rng[-1]+1))]
 
 def visible(line):
     vis = ""
@@ -100,8 +104,9 @@ def merge(line):
         if type(part) == type(""):
             s += part
         else:
-            s += " ".join(part) + " "
+            s += "".join(part)
     return s
+
 
 class EdError(Exception):
     def __init__(self, message):
@@ -110,6 +115,7 @@ class EdError(Exception):
 
 def error(s):
     raise EdError(s)
+
 
 class editor:
     """an editor which doesn't really delete"""
@@ -125,8 +131,8 @@ class editor:
         """Determine number at comm start, and where it stops or -1"""
         for n, c in enumerate(comm):
             if not isDigit(c):
-                return int(comm[:n]), n
-        return int(comm), -1
+                return int(comm[:n])-1, n
+        return int(comm)-1, -1
 
     def getRelative(self, comm):
         """determine relative offset at comm start, and where it stops or -1"""
@@ -156,9 +162,7 @@ class editor:
         rel += sign * offset
         return rel, end
 
-    def search(self, rng, comm):
-        if len(rng) != 0:
-            error("Invalid address")
+    def search(self, comm):
         if len(comm) == 1:
             # repeat previous regex, if there is one
             error("No previous pattern")
@@ -197,7 +201,7 @@ class editor:
         elif isDigit(comm[0]): addr, end = self.getNumber(comm)
         else:
             # No address, on non-empty command
-            return self.cursor, 0
+            return -1, 0
         # Determine relative offset (if needed) and update end
         if end != -1:
             rel, relend = self.getRelative(comm[end:])
@@ -214,14 +218,33 @@ class editor:
     def getRange(self, comm):
         addr, end = self.getAddress(comm)
         if end == -1:
-            return [addr], -1
+            if addr == -1:
+                # empty comm
+                return [], -1
+            else:
+                # comm == single address
+                return [addr], -1
+        elif end == 0:
+            # empty address
+            if comm[0] == ",":
+                # nothing left of comma
+                addr = 0
+            else:
+                # no range before command
+                return [], 0
         if comm[end] != ",":
+            # single address, not range, before command
             return [addr], end
         addr2, end2 = self.getAddress(comm[end+1:])
-        if addr2 < addr:
+        if addr2 == -1:
+            # nothing right of comma
+            addr2 = len(self.text) - 1
+        elif addr2 < addr:
             error("Invalid address")
         if end2 == -1:
+            # comm == range
             return [addr, addr2], -1
+        # range, followed by command
         return [addr, addr2], end + 1 + end2
 
     def updateMarks(self, rng, inc):
@@ -273,37 +296,37 @@ class editor:
             sys.stdout.write("\033[m")
 
     def insert(self, rng):
-        """insert before line range (or cursor)"""
+        """insert before line"""
         if len(rng) == 0:
-            rng = [self.cursor]
+            line = self.cursor
         else:
-            rng = sorted(rng)
+            line = rng[0]
         newText = self.newText or getText()
         if len(newText) > 0:
             self.modified = True
-        self.text[rng[0]:rng[0]] = newText
-        self.updateMarks(rng, len(newText))
-        self.cursor = rng[0] + len(newText) - 1
+        self.text[line:line] = newText
+        self.updateMarks([line], len(newText))
+        self.cursor = line + len(newText) - 1
         if self.cursor == -1:
             # inserted nothing, before beginning
             self.cursor = 0
 
     def append(self, rng):
-        """append after line range (or cursor)"""
+        """append after line"""
         # TODO : should appending after last line
         # cause appendix to be merged before new content ?
         if len(rng) == 0:
-            rng = [self.cursor]
+            line = self.cursor
         else:
-            rng = sorted(rng)
+            line = rng[-1]
         if len(self.text) == 0:
             self.cursor = -1
         newText = self.newText or getText()
         if len(newText) > 0:
             self.modified = True
-        self.text[rng[-1]+1:rng[-1]+1] = newText
-        self.updateMarks(rng, len(newText))
-        self.cursor = rng[-1] + len(newText)
+        self.text[line+1:line+1] = newText
+        self.updateMarks([line], len(newText))
+        self.cursor = line + len(newText)
 
     def change(self, rng):
         """change line range (or cursor)"""
@@ -340,9 +363,12 @@ class editor:
 
     def glob(self, rng, comm):
         if len(rng) == 0:
-            rng = range(len(self.text))
+            rng = [0, len(self.text)-1]
         if len(comm) == 1:
             error("Invalid pattern delimiter")
+        if len(comm) == 2:
+            # TODO repeat previous search pattern, if available
+            error("No previous pattern")
         delim = comm[1]
         esc = False
         for n, c in enumerate(comm[2:]):
@@ -405,14 +431,13 @@ class editor:
             # TODO repeat previous substitution, if there is one
             error("No previous substitution")
         delim = comm[1]
-        # TODO replace this with a machine a etat
-        # to check for escape backslashes
+        # TODO replace this with an FSA to avoid escaped delimiters
         delim2 = comm.find(delim, 2)
         if delim2 == -1:
             error("Invalid pattern delimiter")
         patt = re.compile(comm[2:delim2])
         # Determine replacement string and substitution count
-        # substitution count != 1 not implemented yet
+        # TODO replace this with an FSA to avoid escaped delimiters
         delim3 = comm.find(delim, delim2+1)
         cnt = 1
         if delim3 == -1:
@@ -423,11 +448,13 @@ class editor:
                 pass
             elif comm[delim3+1:] == "g":
                 cnt = 0
-            else:
+            elif all(map(isDigit, comm[delim3+1:])):
                 cnt = int(comm[delim3+1:])
+            else:
+                error("Invalid command suffix")
         globmatched = False
         for n, line in nsub(self.text, rng):
-            # TODO for s/patt/repl/g, repeat the whole thing
+            # TODO for sub count != 1 repeat the whole thing
             # warning : avoid regex recursion !!!
             vis = ""
             matched = False
@@ -439,8 +466,7 @@ class editor:
                 if not match:
                     continue
                 # there is a match !
-                matched = True
-                globmatched = rng[0] + n
+                globmatched = matched = True
                 if len(vis) - match.start() > len(part):
                     # goes across hidden content, change line
                     hid = ""
@@ -468,21 +494,24 @@ class editor:
                     if start == end: # zero-length matches ("^", "$")
                         line[m] = patt.sub(repl, line[m])
                     else:
-                        line[m:m+1] = [
-                            part[:start],
-                            [part[start:end]],
-                            patt.sub(repl, part[start:end]),
-                            part[end:]
-                        ]
+                        newparts = []
+                        if part[:start] != "":
+                            newparts.append(part[:start])
+                        newparts.append([part[start:end]])
+                        newparts.append(patt.sub(repl, part[start:end]))
+                        if part[end:] != "":
+                            newparts.append(part[end:])
+                        # actual insertion
+                        line[m:m+1] = newparts
                     # TODO attempt merges (recursive ?) outside of part
                     # TODO allow newlines
                 break
             if matched:
+                self.cursor = rng[0] + n
                 self.text[self.cursor] = line
         self.updateMarks(rng, 0)
         if globmatched:
             self.modified = True
-            self.cursor = globmatched
             print(visible(self.text[self.cursor]))
         else:
             error("No match")
@@ -522,19 +551,17 @@ class editor:
         sys.exit(0)
 
     def parse(self, comm):
-        if comm == "": # empty command (no range no command)
-            if self.cursor == len(self.text) - 1:
-                error("Invalid address")
-            else:
-                self.cursor += 1
-                print(visible(self.text[self.cursor]))
-            return
         rng, end = self.getRange(comm)
         if end == -1: comm = ""
         else:         comm = comm[end:]
         if comm != "q": # two consecutive "q"s force quit
             self.override = False
-        if comm == "": print(visible(self.text[self.cursor]))
+        if comm == "":
+            if len(rng) == 0:
+                self.cursor += 1
+            else:
+                self.cursor = rng[-1]
+            print(visible(self.text[self.cursor]))
         elif comm == "q": self.quit(rng)
         elif comm == "Q": self.quitforce(rng)
         elif comm == "p": self.print(rng, hide=True)
