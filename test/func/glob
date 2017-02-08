@@ -1,0 +1,45 @@
+#!/usr/bin/expect -f
+
+spawn ./ed
+expect ">"
+send "i
+a
+b
+a
+.\r"
+expect ">"
+send "g/a/d\r"
+expect ">"
+send ",p\r"
+expect "b"
+send "Q\r"
+expect eof
+
+spawn ./ed
+expect ">"
+send "i
+a
+b
+a
+b
+c
+a
+b
+.\r"
+expect ">"
+send "g/a/i\\
+bonjour\\
+.\\
++1\\
+d\\
+d\\
+d\r"
+expect "a"
+expect "a"
+expect ">"
+send ",p\r"
+expect "bonjour"
+expect "b"
+expect "c"
+send "Q\r"
+expect eof

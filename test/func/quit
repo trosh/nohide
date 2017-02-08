@@ -1,0 +1,18 @@
+#!/usr/bin/expect -f
+
+spawn ./ed
+expect "type h for help"
+expect ">"
+send "q\r"
+expect eof
+
+spawn ./ed
+expect ">"
+send "i
+hello
+.\r"
+expect ">"
+send "q\r"
+expect "Warning: buffer modified"
+send "q\r"
+expect eof
