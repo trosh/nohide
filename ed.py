@@ -83,17 +83,19 @@ def visible(line):
             vis += part
     return vis
 
+st = "\033[9m"
+
 def complete(line):
     s = ""
     if type(line[0]) == type([]) and \
        line[0][0][-1] == "\n":
-        s = "\033[9m{}\033[m".format("".join(line[0]))
+        s = "{}{}\033[m".format(st, "".join(line[0]))
         line = line[1:]
     for part in line:
         if type(part) == type(""):
             s += part
         else:
-            s += "\033[9m{}\033[m".format("".join(part))
+            s += "{}{}\033[m".format(st, "".join(part))
     return s
 
 def merge(line):
@@ -126,6 +128,11 @@ class editor:
     override = False # For two consecutive "q"s (TODO consecutive "^D"s too)
     marks = False # For batch inserts with glob (TODO k command ?)
     newText = False # For batch inserts with glob
+
+    def __init__(self, strikethrough):
+        if strikethrough:
+            global st
+            st = strikethrough
 
     def getNumber(self, comm):
         """Determine number at comm start, and where it stops or -1"""

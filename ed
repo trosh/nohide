@@ -3,9 +3,14 @@
 import ed
 import sys
 
+st=None
 if len(sys.argv) > 1:
-    if sys.argv[1] == "-h":
-        print(help)
-        sys.exit(0)
+    for arg in sys.argv[1:]:
+        if arg == "-h":
+            print(help)
+            sys.exit(0)
+        elif arg == "-r":
+            # Reverse video
+            st = "\033[7m"
 
-ed.editor().edit()
+ed.editor(st).edit()
