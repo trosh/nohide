@@ -85,8 +85,6 @@ def visible(line):
             vis += part
     return vis
 
-st = "\033[9m"
-
 def complete(line):
     s = ""
     if type(line[0]) == type([]) and \
@@ -131,10 +129,9 @@ class editor:
     marks = False # For batch inserts with glob (TODO k command ?)
     newText = False # For batch inserts with glob
 
-    def __init__(self, strikethrough):
-        if strikethrough:
-            global st
-            st = strikethrough
+    def __init__(self, strikethrough="\033[7m"):
+        global st
+        st = strikethrough
 
     def getNumber(self, comm):
         """Determine number at comm start, and where it stops or -1"""
