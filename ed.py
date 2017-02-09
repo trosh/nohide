@@ -69,11 +69,13 @@ def getText():
 def sub(s, rng):
     if len(s) == 0:
         return []
+    # make iterator instead
     return s[rng[0]:rng[-1]+1]
 
 def nsub(s, rng):
     if len(s) == 0:
         return []
+    # make iterator instead
     return [(n+rng[0], s[i]) for n, i in enumerate(range(rng[0], rng[-1]+1))]
 
 def visible(line):
@@ -254,6 +256,13 @@ class editor:
         # range, followed by command
         return [addr, addr2], end + 1 + end2
 
+    def empty(self, rng):
+        if len(rng) == 0:
+            self.cursor += 1
+        else:
+            self.cursor = rng[-1]
+        return visible(self.text[self.cursor])
+
     def updateMarks(self, rng, inc):
         if not self.marks:
             return
@@ -265,42 +274,40 @@ class editor:
                     self.marks[-n-1] += inc
 
     def print(self, rng, hide=True):
-        display_appendix = False
         if len(rng) == 0:
             rng = [self.cursor]
-        elif rng[-1] == max(0, len(self.text) - 1):
-            display_appendix = True
-        if hide:
-            for line in sub(self.text, rng):
-                print(visible(line))
-            return
         for line in sub(self.text, rng):
-            print(complete(line))
-        if display_appendix:
-            for n, line in enumerate(self.appendix):
-                sys.stdout.write("\033[9m{}\033[m".format(line))
+            yield visible(line) + "\n"
 
-    def enumerate(self, rng, hide=True):
-        display_appendix = False
+    def printHidden(self, rng):
         if len(rng) == 0:
             rng = [self.cursor]
-        elif rng[-1] == len(self.text) - 1:
-            display_appendix = True
-        if hide:
-            for n, line in enumerate(sub(self.text, rng)):
-                print("{:6d}  {}".format(n+1, visible(line)))
-            return
+        for line in sub(self.text, rng):
+            yield complete(line) + "\n"
+        if rng[-1] == max(0, len(self.text) - 1):
+            for n, line in enumerate(self.appendix):
+                yield "{}{}\033[m".format(st, line)
+
+    def enumerate(self, rng):
+        if len(rng) == 0:
+            rng = [self.cursor]
+        for n, line in enumerate(sub(self.text, rng)):
+            yield "{:6d}  {}\n".format(n+1, visible(line))
+
+    def enumerateHidden(self, rng):
+        if len(rng) == 0:
+            rng = [self.cursor]
         for n, line in enumerate(sub(self.text, rng)):
             parts = complete(line).split("\n")
             for hiddenline in parts[:-1]:
-                print("\t" + hiddenline)
-            sys.stdout.write("\033[m")
-            print("{:6d}  {}".format(n+1, parts[-1]))
-        if display_appendix:
-            sys.stdout.write("\033[9m")
+                yield "\t" + hiddenline
+            #yield "\033[m"
+            yield "{:6d}  {}\n".format(n+1, parts[-1])
+        if rng[-1] == max(0, len(self.text) - 1):
+            yield st
             for line in self.appendix:
-                sys.stdout.write("\t" + line)
-            sys.stdout.write("\033[m")
+                yield "\t" + line
+            yield "\033[m"
 
     def insert(self, rng):
         """insert before line"""
@@ -519,7 +526,7 @@ class editor:
         self.updateMarks(rng, 0)
         if globmatched:
             self.modified = True
-            print(visible(self.text[self.cursor]))
+            return visible(self.text[self.cursor]) + "\n"
         else:
             error("No match")
 
@@ -540,6 +547,19 @@ class editor:
         self.text[rng[0]:rng[-1]+1] = [newline]
         self.updateMarks(rng, rng[0] - rng[-1]) # decrement by rng.len - 1
         self.cursor = rng[0]
+
+    def debug(self, rng):
+        yield str(self.text) + "\n"
+        yield str(self.appendix) + "\n"
+
+    def printLine(self, rng):
+        """print last line in range or cursor"""
+        if len(rng) == 0:
+            rng = [self.cursor]
+        return str(rng[-1])
+
+    def printHelp(self, rng):
+        return help
 
     def quit(self, rng):
         """quit (fail on non-empty line range)"""
@@ -563,36 +583,41 @@ class editor:
         else:         comm = comm[end:]
         if comm != "q": # two consecutive "q"s force quit
             self.override = False
-        if comm == "":
-            if len(rng) == 0:
-                self.cursor += 1
-            else:
-                self.cursor = rng[-1]
-            print(visible(self.text[self.cursor]))
-        elif comm == "q": self.quit(rng)
-        elif comm == "Q": self.quitforce(rng)
-        elif comm == "p": self.print(rng, hide=True)
-        elif comm == "P": self.print(rng, hide=False)
-        elif comm == "n": self.enumerate(rng, hide=True)
-        elif comm == "N": self.enumerate(rng, hide=False)
-        elif comm == "%":
-            print(self.text)
-            print(self.appendix)
-        elif comm == "i": self.insert(rng)
-        elif comm == "a": self.append(rng)
-        elif comm == "c": self.change(rng)
-        elif comm == "d": self.delete(rng)
-        elif comm == "j": self.join(rng)
-        elif comm == "=": print(self.cursor + 1)
-        elif comm[0] == "h": print(help)
-        elif comm[0] == "g":
-            while comm[-1] == "\\":
-                comm = comm[:-1] + "\n" + input("")
-            self.glob(rng, comm)
-        elif comm[0] == "s":
-            self.substitute(rng, comm)
+        if len(comm) <= 1:
+            commtab = {
+                "" : self.empty,
+                "q": self.quit,
+                "" : self.empty,
+                "q": self.quit,
+                "Q": self.quitforce,
+                "p": self.print,
+                "P": self.printHidden,
+                "n": self.enumerate,
+                "N": self.enumerateHidden,
+                "%": self.debug,
+                "i": self.insert,
+                "a": self.append,
+                "c": self.change,
+                "d": self.delete,
+                "j": self.join,
+                "=": self.printLine,
+                "h": self.printHelp
+            }
+            # Call command, or build generator
+            gen = commtab[comm](rng)
+            if gen:
+                for line in gen:
+                    print(line, end="")
         else:
-            error("Unknown command")
+            if comm[0] == "g":
+                while comm[-1] == "\\":
+                    comm = comm[:-1] + "\n" + input("")
+                # Assume glob returns nothing
+                self.glob(rng, comm)
+            elif comm[0] == "s":
+                sys.stdout.write(self.substitute(rng, comm) or "")
+            else:
+                error("Unknown command")
 
     def edit(self):
         print("type h for help")
