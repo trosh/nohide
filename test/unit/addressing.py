@@ -25,7 +25,10 @@ class TestEdAddressing(unittest.TestCase):
             end   = random.randrange(len(letters))
             if start > end:
                 start, end = end, start
-            e.parse("{},{}".format(start, end))
+            gen = e.print([start, end])
+            output = [ret for ret in gen]
+            expected = [c+"\n" for c in letters[start:end+1]]
+            self.assertEqual(output, expected)
 
 if __name__ == "__main__":
     unittest.main()
