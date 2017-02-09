@@ -580,32 +580,34 @@ class editor:
         else:         comm = comm[end:]
         if comm != "q": # two consecutive "q"s force quit
             self.override = False
+        commtab = {
+            "" : self.empty,
+            "q": self.quit,
+            "" : self.empty,
+            "q": self.quit,
+            "Q": self.quitforce,
+            "p": self.print,
+            "P": self.printHidden,
+            "n": self.enumerate,
+            "N": self.enumerateHidden,
+            "%": self.debug,
+            "i": self.insert,
+            "a": self.append,
+            "c": self.change,
+            "d": self.delete,
+            "j": self.join,
+            "=": self.printLine,
+            "h": self.printHelp
+        }
         if len(comm) <= 1:
-            commtab = {
-                "" : self.empty,
-                "q": self.quit,
-                "" : self.empty,
-                "q": self.quit,
-                "Q": self.quitforce,
-                "p": self.print,
-                "P": self.printHidden,
-                "n": self.enumerate,
-                "N": self.enumerateHidden,
-                "%": self.debug,
-                "i": self.insert,
-                "a": self.append,
-                "c": self.change,
-                "d": self.delete,
-                "j": self.join,
-                "=": self.printLine,
-                "h": self.printHelp
-            }
             # Call command, or build generator
             gen = commtab[comm](rng)
             if gen:
                 for line in gen:
                     print(line, end="")
         else:
+            if comm[0] in commtab:
+                error("Invalid command suffix")
             if comm[0] == "g":
                 while comm[-1] == "\\":
                     comm = comm[:-1] + "\n" + input("")
