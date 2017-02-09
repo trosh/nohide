@@ -258,7 +258,7 @@ class editor:
             self.cursor += 1
         else:
             self.cursor = rng[-1]
-        return visible(self.text[self.cursor])
+        return visible(self.text[self.cursor]) + "\n"
 
     def updateMarks(self, rng, inc):
         if not self.marks:
