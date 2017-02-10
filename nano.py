@@ -3,7 +3,8 @@
 import curses
 
 # vertical offset
-VOFF = 3
+VOFF = 1
+HOFF = 4
 
 class Editor():
     line = 0
@@ -14,17 +15,17 @@ class Editor():
     showHidden = False
 
     def updateCursor(self):
-        self.stdscr.addstr(
-            1, 0,
-            "line: {}, col: {}".format(
-                self.line, self.char),
-            curses.color_pair(2))
-        self.stdscr.addstr(
-            2, 0,
-            "displine: {}, dispcol: {}, usercol: {}".format(
-                self.line, self.dispchar, self.userchar),
-            curses.color_pair(2))
-        self.stdscr.move(self.line + VOFF, self.dispchar)
+        #self.stdscr.addstr(
+        #    1, 0,
+        #    "line: {}, col: {}".format(
+        #        self.line, self.char),
+        #    curses.color_pair(2))
+        #self.stdscr.addstr(
+        #    2, 0,
+        #    "displine: {}, dispcol: {}, usercol: {}".format(
+        #        self.line, self.dispchar, self.userchar),
+        #    curses.color_pair(2))
+        self.stdscr.move(self.line + VOFF, self.dispchar + HOFF)
 
     def setChar(self, userchar):
         nc = 0
@@ -150,17 +151,21 @@ class Editor():
         self.stdscr.clear()
         self.stdscr.addstr(
             0, 0,
-            "^C to quit, ^H to toggle hidden content, arrows to move",
+            "^c to quit, ^H to toggle hidden content, arrows to move",
             curses.color_pair(2))
         for ln, line in enumerate(self.text):
             vcn = 0
+            self.stdscr.addstr(
+                ln + VOFF, 0,
+                "{:3d}".format(ln))
             for cn, c in enumerate(line):
                 if self.vis[ln][cn]:
-                    self.stdscr.addch(ln + VOFF, vcn, c)
+                    self.stdscr.addch(ln + VOFF, vcn + HOFF, c)
                     vcn += 1
                 elif self.showHidden:
                     self.stdscr.addstr(
-                        ln + VOFF, vcn, c, curses.color_pair(1))
+                        ln + VOFF, vcn + HOFF,
+                        c, curses.color_pair(1))
                     vcn += 1
         self.updateCursor()
 
@@ -168,13 +173,15 @@ class Editor():
         vcn = 0
         self.stdscr.move(ln + VOFF, 0)
         self.stdscr.clrtoeol()
+        self.stdscr.addstr(ln + VOFF, 0, "{:3d}".format(ln))
         for cn, c in enumerate(self.text[ln]):
             if self.vis[ln][cn]:
-                self.stdscr.addch(ln + VOFF, vcn, c)
+                self.stdscr.addch(ln + VOFF, vcn + HOFF, c)
                 vcn += 1
             elif self.showHidden:
                 self.stdscr.addstr(
-                    ln + VOFF, vcn, c, curses.color_pair(1))
+                    ln + VOFF, vcn + HOFF,
+                    c, curses.color_pair(1))
                 vcn += 1
         self.updateCursor()
 
@@ -191,7 +198,7 @@ def main(stdscr):
         try:
             c = stdscr.getch()
             #stdscr.addstr(0, 20, "[{}]".format(c))
-            if c == 8: # ^H
+            if c == 263: # ^H
                 e.toggleHidden()
                 stdscr.clear()
                 e.display()
@@ -199,7 +206,7 @@ def main(stdscr):
             elif c == curses.KEY_LEFT:  e.decChar()
             elif c == curses.KEY_UP:    e.setLine(e.line - 1)
             elif c == curses.KEY_DOWN:  e.setLine(e.line + 1)
-            elif c == curses.KEY_BACKSPACE:
+            elif c in [127, curses.KEY_BACKSPACE]:
                 e.backspace()
             else:
                 e.type(chr(c))
