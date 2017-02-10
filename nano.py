@@ -28,9 +28,8 @@ class Editor():
         self.stdscr.move(self.line + VOFF, self.dispchar + HOFF)
 
     def setChar(self, userchar):
-        nc = 0
-        ndispc = 0
-        for v in self.vis[self.line]:
+        ndispc = nc = 0
+        for v in self.vis[self.line][:-1]:
             if v and nc >= userchar:
                 break
             if self.showHidden or v:
@@ -47,15 +46,17 @@ class Editor():
             if  line < len(self.text):
                 self.line = line
             else:
-                line = max(0, len(self.text) - 1)
+                self.line = max(0, len(self.text) - 1)
+                self.userchar = len(self.text[self.line]) - 1
         else:
-            line = 0
+            self.line = 0
+            self.userchar = 0
         self.setChar(self.userchar)
 
     def incChar(self):
         while True:
             self.char += 1
-            if self.char == len(self.vis[self.line]) + 1:
+            if self.char == len(self.vis[self.line]):
                 # EOL
                 if self.line + 1 == len(self.text):
                     # EOF
@@ -64,13 +65,10 @@ class Editor():
                 self.line += 1
                 self.char = 0
                 self.dispchar = -1
-            EOL = self.char == len(self.vis[self.line])
-            SHO = self.showHidden
-            if not EOL:
-                VIS = self.vis[self.line][self.char]
-            if EOL or SHO or VIS:
+            VIS = self.vis[self.line][self.char]
+            if VIS or self.showHidden:
                 self.dispchar += 1
-            if EOL or VIS:
+            if VIS:
                 break
         self.userchar = self.dispchar
         self.updateCursor()
@@ -80,21 +78,19 @@ class Editor():
             self.char -= 1
             if self.char == - 1:
                 if self.line == 0:
-                    self.dispchar = self.char = 0
+                    self.dispchar = -1
+                    self.incChar()
                     break
                 self.line -= 1
-                self.char = len(self.vis[self.line])
+                self.char = len(self.vis[self.line]) - 1
                 if self.showHidden:
                     self.dispchar = self.char + 1
                 else:
-                    self.dispchar = sum(self.vis[self.line]) + 1
-            EOL = self.char == len(self.vis[self.line])
-            SHO = self.showHidden
-            if not EOL:
-                VIS = self.vis[self.line][self.char]
-            if EOL or SHO or VIS:
+                    self.dispchar = sum(self.vis[self.line])
+            VIS = self.vis[self.line][self.char]
+            if VIS or self.showHidden:
                 self.dispchar -= 1
-            if EOL or VIS:
+            if VIS:
                 break
         self.userchar = self.dispchar
         self.updateCursor()
@@ -119,10 +115,11 @@ class Editor():
         else:
             self.reveal()
 
-    def __init__(self, stdscr, text=[], vis=None, line=0, char=0):
+    def __init__(self, stdscr, text=["\n"], vis=None, line=0, char=0):
         self.stdscr = stdscr
         # TODO modified = False
         self.text = text
+        # TODO check newlines
         self.vis = vis or [[True for c in line] for line in text]
         self.setLine(line)
         self.setChar(char)
@@ -137,15 +134,45 @@ class Editor():
         self.userchar = self.dispchar
         self.displayLine(self.line)
 
+    def newline(self):
+        ln = self.line
+        text = self.text[ln]
+        vis = self.vis[ln]
+        ch = self.char
+        self.text[ln:ln+1] = [text[:ch] + "\n", text[ch:]]
+        self.vis[ln:ln+1] = [vis[:ch] + [True], vis[ch:]]
+        self.line += 1
+        self.userchar = self.dispchar = self.char = 0
+        self.display()
+
     def backspace(self):
-        if self.dispchar == 0:
-            pass
+        if sum(self.vis[self.line][:self.char]) == 0:
+            if self.line == 0:
+                return
+            self.decChar()
+            self.vis[self.line][self.char] = False
+            if sum(self.vis[self.line][:self.char]) < 1:
+                self.dispchar = self.char = -1
+            else:
+                self.decChar()
+            self.text[self.line:self.line+2] = [
+                self.text[self.line] + self.text[self.line+1]]
+            self.vis[self.line:self.line+2] = [
+                self.vis[self.line] + self.vis[self.line+1]]
+            self.incChar()
+            self.display()
+        elif sum(self.vis[self.line][:self.char]) == 1:
+            self.decChar()
+            self.vis[self.line][self.char] = False
+            self.dispchar = self.char = -1
+            self.incChar()
+            self.displayLine(self.line)
         else:
             self.decChar()
             self.vis[self.line][self.char] = False
             self.decChar()
             self.incChar()
-            self.display()
+            self.displayLine(self.line)
 
     def display(self):
         self.stdscr.clear()
@@ -158,7 +185,7 @@ class Editor():
             self.stdscr.addstr(
                 ln + VOFF, 0,
                 "{:3d}".format(ln))
-            for cn, c in enumerate(line):
+            for cn, c in enumerate(line[:-1]):
                 if self.vis[ln][cn]:
                     self.stdscr.addch(ln + VOFF, vcn + HOFF, c)
                     vcn += 1
@@ -174,7 +201,7 @@ class Editor():
         self.stdscr.move(ln + VOFF, 0)
         self.stdscr.clrtoeol()
         self.stdscr.addstr(ln + VOFF, 0, "{:3d}".format(ln))
-        for cn, c in enumerate(self.text[ln]):
+        for cn, c in enumerate(self.text[ln][:-1]):
             if self.vis[ln][cn]:
                 self.stdscr.addch(ln + VOFF, vcn + HOFF, c)
                 vcn += 1
@@ -190,8 +217,8 @@ def main(stdscr):
     stdscr.clear()
     curses.init_pair(1, curses.COLOR_RED,   curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    e = Editor(stdscr, ["hello","","world"])
-    e.vis[0][-1] = False
+    e = Editor(stdscr, ["hello\n","\n","world\n"])
+    e.vis[0][-2] = False
     e.display()
     stdscr.refresh()
     while True:
@@ -208,6 +235,8 @@ def main(stdscr):
             elif c == curses.KEY_DOWN:  e.setLine(e.line + 1)
             elif c in [127, curses.KEY_BACKSPACE]:
                 e.backspace()
+            elif c == 10:
+                e.newline()
             else:
                 e.type(chr(c))
             stdscr.refresh()
