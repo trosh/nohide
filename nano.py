@@ -12,15 +12,6 @@ def cvToChar(cv):
         return cv[0]
     return ""
 
-commands = [
-    " Exit",
-    " Write Out",
-    " Toggle Hidden",
-    " Toggle Debug",
-    " Cut (TODO)",
-    " Uncut (TODO)"
-]
-
 class Editor():
     line = 0
     char = 0
@@ -302,6 +293,15 @@ class Editor():
                 for n in range(len(self.text)):
                     f.write(self.visible(n))
         self.display()
+
+commands = [
+    " Exit",
+    " Write Out",
+    " Toggle Hidden",
+    " Toggle Debug",
+    " Cut Text",
+    " Uncut Text"
+]
 
 def main(stdscr):
     stdscr.clear()
