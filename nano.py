@@ -328,8 +328,15 @@ def main(stdscr):
                 debug = not debug
                 stdscr.addstr(0, 20, "[{}]".format(c))
                 e.display()
-            elif c == "^O":
+            elif c == "":
                 e.write()
+            elif c == "":
+                # TODO display cursor position
+                # need to stop raising KeyboardInterrupt
+                pass
+            elif c == "":
+                # TODO check file modified
+                break
             elif c == "":
                 e.cut()
             elif c == "":
