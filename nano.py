@@ -346,7 +346,7 @@ def main(stdscr):
             elif c == "KEY_LEFT":  e.decChar()
             elif c == "KEY_UP":    e.setLine(e.line - 1)
             elif c == "KEY_DOWN":  e.setLine(e.line + 1)
-            elif c == "":
+            elif c in ["", "KEY_BACKSPACE"]:
                 e.backspace()
             elif c == "\n":
                 e.newline()
