@@ -240,9 +240,9 @@ class Editor():
             elif self.showHidden:
                 if c == "\n":
                     c = "↵"
-                self.stdscr.addch(
-                    ln + VOFF, vcn + HOFF,
-                    c, curses.A_DIM)
+                self.stdscr.attron(curses.color_pair(2))
+                self.stdscr.addch(ln + VOFF, vcn + HOFF, c)
+                self.stdscr.attroff(curses.color_pair(2))
                 vcn += 1
 
     def display(self):
@@ -309,6 +309,7 @@ commands = [
 
 def main(stdscr):
     stdscr.clear()
+    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
     e = Editor(stdscr, ["\n"])
     debug = False
     e.display()
@@ -353,6 +354,7 @@ def main(stdscr):
             elif len(c) == 1:
                 e.type(c)
             if debug:
+                stdscr.addstr(0, 15, str(curses.COLORS))
                 stdscr.addstr(0, 20, "[{}]".format(c))
                 stdscr.clrtoeol()
                 stdscr.chgat(curses.A_REVERSE)
