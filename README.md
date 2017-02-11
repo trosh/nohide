@@ -25,9 +25,11 @@ history, just to see the accumulated attempts.
 
 ### For example
 
-![example ed session](helloworld.gif)
+[Here](https://asciinema.org/a/42q86esq1zci4vsfc9n1ktoyz)'s
+a screencast of `nano.py` in action.
 
-<!--
+Here's an example of a session in `ed`:
+
 <pre>
 $ ed
 >a
@@ -38,7 +40,6 @@ goodbye world
 >P
 <del>hello</del> goodbye world
 </pre>
--->
 
 ## TODO:
 
