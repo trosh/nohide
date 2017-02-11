@@ -274,14 +274,18 @@ class Editor():
 
     def write(self):
         if not self.filename:
+            wh, ww = self.stdscr.getmaxyx()
+            self.stdscr.move(wh-3, 0)
+            self.stdscr.chgat(curses.A_REVERSE)
             self.stdscr.attron(curses.A_REVERSE)
-            self.stdscr.addstr(20, 0, "File Name to Write ")
+            self.stdscr.addstr("File Name to Write ")
             if self.showHidden:
-                self.stdscr.addstr("(with hidden content) : ")
+                self.stdscr.addstr("(plaintext) : ")
             else:
-                self.stdscr.addstr("(without hidden content) : ")
+                self.stdscr.addstr("(fulltext) : ")
             curses.echo()
             self.filename = self.stdscr.getstr()
+            # TODO catch commands, incl. ^C
             curses.noecho()
             self.stdscr.attroff(curses.A_REVERSE)
         with open(self.filename, "w") as f:
