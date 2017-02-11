@@ -241,7 +241,7 @@ class Editor():
         #self.stdscr.addstr(ln + VOFF, 0, "{:3d}".format(ln))
         vcn = 0
         for cn, c in enumerate(self.text[ln][:-1]):
-            if cn + HOFF == ww:
+            if vcn + HOFF == ww:
                 break
             if self.vis[ln][cn]:
                 self.stdscr.addch(ln + VOFF, vcn + HOFF, c)
@@ -251,7 +251,7 @@ class Editor():
                     c = "↵"
                 self.stdscr.addch(
                     ln + VOFF, vcn + HOFF,
-                    c, curses.color_pair(1))
+                    c, curses.A_DIM)
                 vcn += 1
 
     def display(self):
@@ -299,14 +299,12 @@ class Editor():
                     f.write(line)
                     f.write("".join([str(v+0) for v in self.vis[n]])+"\n")
             else:
-                for n in range(len(self.text))
+                for n in range(len(self.text)):
                     f.write(self.visible(n))
         self.display()
 
 def main(stdscr):
     stdscr.clear()
-    curses.init_pair(1, curses.COLOR_RED,   curses.COLOR_BLACK)
-    curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_BLACK)
     e = Editor(stdscr, ["\n"])
     debug = False
     e.display()
